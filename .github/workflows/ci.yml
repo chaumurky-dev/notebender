@@ -50,6 +50,8 @@ jobs:
       - run: ./target/debug/notebender doctor || true
       - run: ./target/debug/notebender transpose tests/fixtures/simple.musicxml --to Bb --format lilypond,pdf -o ci-out
       - run: test -s ci-out/score.pdf && test -s ci-out/score.ly && grep -q "<fifths>-2</fifths>" ci-out/score.musicxml
+      - run: ./target/debug/notebender convert tests/fixtures/simple.musicxml --to lilypond,pdf --scale 0.8 --spacing 0.9 --page-count 1 -o ci-layout
+      - run: test -s ci-layout/score.pdf && grep -q "set-global-staff-size 16.00" ci-layout/score.ly
       - uses: actions/upload-artifact@v4
         with:
           name: offline-pipeline-output

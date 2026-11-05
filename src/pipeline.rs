@@ -135,6 +135,9 @@ pub struct Plan {
     /// Anything the planner could not map onto a step; surfaced as a warning.
     #[serde(default)]
     pub unsupported: Vec<String>,
+    /// Engraving layout (staff size, spacing, page targets). Applies to LilyPond/PDF output.
+    #[serde(default)]
+    pub layout: crate::layout::LayoutOptions,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

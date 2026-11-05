@@ -11,6 +11,7 @@ Guidance for coding agents working in this repository.
 - `src/main.rs` CLI (clap). `src/lib.rs` architecture overview. Both front-ends call `pipeline::run_job`.
 - `src/pipeline.rs` data model (`Plan`, `Step`, `Format`, `JobRequest`, `ProgressEvent`); `src/pipeline_run.rs` execution (OMR -> plan -> steps -> deliverables -> `report.md`).
 - `src/models.rs` tiers, model ids, prices. `src/router.rs` task -> tier. `src/config.rs` TOML config + `EXAMPLE_TOML`.
+- `src/layout.rs` engraving layout options (staff size, spacing, page targets) injected into LilyPond source; deterministic.
 - `src/agents/` model-backed agents (planner, omr, tablature, arrange, edit, convert, review) and the shared `xml_task.rs` driver (validate + one repair round).
 - `src/claude/` Messages API client (streaming, retries, prompt caching, fallbacks).
 - `src/musicxml/` deterministic transpose / validate / merge. `src/tools.rs` + `src/pdf.rs` external tools (lilypond, musicxml2ly, pdftoppm, pdfinfo).

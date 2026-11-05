@@ -4,6 +4,7 @@ use anyhow::{Context as _, Result};
 use clap::{Args, Parser, Subcommand};
 use notebender::claude::Client;
 use notebender::config::Config;
+use notebender::layout::LayoutOptions;
 use notebender::models::Tier;
 use notebender::musicxml;
 use notebender::pipeline::{self, Context, Format, JobRequest, Plan, ProgressEvent, Step};
@@ -129,6 +130,8 @@ enum Command {
         formats: Vec<String>,
         #[command(flatten)]
         out: OutArgs,
+        #[command(flatten)]
+        layout: LayoutArgs,
     },
     /// Start the local web UI.
     Serve {
@@ -185,6 +188,49 @@ struct FormatArgs {
     /// Extra output format besides MusicXML: lilypond, pdf, humdrum, abc (repeatable or comma-separated).
     #[arg(long = "format", value_name = "FMT")]
     formats: Vec<String>,
+    #[command(flatten)]
+    layout: LayoutArgs,
+}
+
+/// Engraving layout (LilyPond/PDF output). Any of these implies a PDF deliverable.
+#[derive(Args, Debug, Clone)]
+#[command(next_help_heading = "Layout (PDF/LilyPond)")]
+struct LayoutArgs {
+    /// Overall size multiplier: 0.8 fits more per page, 1.2 is large print.
+    #[arg(long, value_name = "FACTOR", conflicts_with = "staff_size")]
+    scale: Option<f32>,
+    /// Absolute staff size in points (LilyPond default 20).
+    #[arg(long, value_name = "PT")]
+    staff_size: Option<f32>,
+    /// Horizontal note-spacing multiplier (0.8 = tighter, 1.25 = roomier).
+    #[arg(long, value_name = "FACTOR")]
+    spacing: Option<f32>,
+    /// Vertical multiplier for the gap between systems.
+    #[arg(long, value_name = "FACTOR")]
+    system_spacing: Option<f32>,
+    /// Fit the piece on exactly this many pages.
+    #[arg(long, value_name = "N")]
+    page_count: Option<u32>,
+    /// Fixed number of systems per page.
+    #[arg(long, value_name = "N")]
+    systems_per_page: Option<u32>,
+    /// Paper size: a4, letter, legal, a3, …
+    #[arg(long, value_name = "NAME")]
+    paper_size: Option<String>,
+}
+
+impl LayoutArgs {
+    fn to_options(&self) -> LayoutOptions {
+        LayoutOptions {
+            scale: self.scale,
+            staff_size: self.staff_size,
+            spacing: self.spacing,
+            system_spacing: self.system_spacing,
+            page_count: self.page_count,
+            systems_per_page: self.systems_per_page,
+            paper_size: self.paper_size.clone(),
+        }
+    }
 }
 
 fn parse_formats(specs: &[String]) -> Result<Vec<Format>> {
@@ -352,6 +398,7 @@ async fn main() -> Result<()> {
                 steps: vec![],
                 deliverables: parse_formats(&formats.formats)?,
                 unsupported: vec![],
+                layout: formats.layout.to_options(),
             };
             run_with_plan(&app, input, out, Some(plan), "Transcribe this score.".into(), false).await
         }
@@ -381,6 +428,7 @@ async fn main() -> Result<()> {
                 steps: vec![step],
                 deliverables: parse_formats(&formats.formats)?,
                 unsupported: vec![],
+                layout: formats.layout.to_options(),
             };
             run_with_plan(&app, input, out, Some(plan), instructions, false).await
         }
@@ -402,6 +450,7 @@ async fn main() -> Result<()> {
                 }],
                 deliverables: parse_formats(&formats.formats)?,
                 unsupported: vec![],
+                layout: formats.layout.to_options(),
             };
             run_with_plan(&app, input, out, Some(plan), instructions, false).await
         }
@@ -426,6 +475,7 @@ async fn main() -> Result<()> {
                 steps: vec![Step::Arrange { instruments, notes }],
                 deliverables: parse_formats(&formats.formats)?,
                 unsupported: vec![],
+                layout: formats.layout.to_options(),
             };
             run_with_plan(&app, input, out, Some(plan), instructions, false).await
         }
@@ -442,10 +492,16 @@ async fn main() -> Result<()> {
                 }],
                 deliverables: parse_formats(&formats.formats)?,
                 unsupported: vec![],
+                layout: formats.layout.to_options(),
             };
             run_with_plan(&app, input, out, Some(plan), instruction, false).await
         }
-        Command::Convert { input, formats, out } => {
+        Command::Convert {
+            input,
+            formats,
+            out,
+            layout,
+        } => {
             let deliverables = parse_formats(&formats)?;
             let instructions = format!(
                 "Convert to {}.",
@@ -456,6 +512,7 @@ async fn main() -> Result<()> {
                 steps: vec![],
                 deliverables,
                 unsupported: vec![],
+                layout: layout.to_options(),
             };
             run_with_plan(&app, input, out, Some(plan), instructions, false).await
         }

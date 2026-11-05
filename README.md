@@ -80,6 +80,8 @@ Subcommands that process a score share these options: `-o, --out DIR` (default `
 | `arrange INPUT` | `--for A,B` (required), `--notes TEXT`, `--format FMT` | Arrange for the listed instruments, in score order. |
 | `edit INPUT -i TEXT` | `--format FMT` | Apply a free-form edit described in words (Sonnet), e.g. "remove the repeats". |
 | `convert INPUT` | `--to FMT` (required, repeatable) | Convert to other notation formats. |
+
+Every score subcommand also takes **layout flags** for the engraved output (`--scale`, `--staff-size`, `--spacing`, `--system-spacing`, `--page-count`, `--systems-per-page`, `--paper-size`); see [Layout](#layout-size-and-spacing). Using any of them implies a PDF deliverable.
 | `serve` | `--host`, `--port`, `--data-dir` | Start the web UI (defaults from config: `127.0.0.1:8787`). |
 | `doctor` | | Check config, API key, external tools, routing and the MusicXML engine. A missing key is reported as a warning; exits non-zero only if the engine self-test fails. |
 | `models` | | Print the task to model routing table and prices. |
@@ -100,11 +102,30 @@ notebender edit song.musicxml -i "double the melody an octave up in the last 8 b
 notebender convert song.musicxml --to lilypond,abc,humdrum
 notebender --model omr=fable omr hard-handwriting.pdf
 notebender transpose song.musicxml --to D --dry-run
+notebender convert song.musicxml --to pdf --scale 0.8 --spacing 0.9     # fit more on each page
+notebender convert song.musicxml --to pdf --page-count 2                 # squeeze onto two pages
+notebender run song.pdf -p "make it bigger and more readable"           # planner sets layout
 ```
 
 `transpose` and `convert --to lilypond,pdf` on MusicXML input need no API key as long as the local tools (musicxml2ly, LilyPond) exist. `--dry-run` needs an explicit plan, so `run --dry-run` is rejected; use a specific subcommand. A dry run cannot transcribe a PDF.
 
 Outputs go in the output directory: `score.musicxml`, `score.ly` / `score.krn` / `score.abc` / `score.pdf` as requested, `transcription.musicxml` (raw OMR result, PDF input only), `report.md`, and a `.work/` scratch directory (page images, intermediate files).
+
+## Layout: size and spacing
+
+Engraved output (LilyPond/PDF) can be made more compact to fit more music per page, or larger for readability. This is deterministic (no model) and works on both `musicxml2ly` output and model-written LilyPond: notebender injects a small block after the `\version` line. In free-text requests the planner maps phrases like "smaller", "fit on two pages", "bigger", "tighter spacing" onto these options.
+
+| Option | CLI flag | Effect |
+|---|---|---|
+| `scale` | `--scale 0.8` | Overall size multiplier (sets the global staff size; LilyPond default is 20pt). 0.8 fits roughly 25% more per page; 1.2 is large print. |
+| `staff_size` | `--staff-size 16` | Absolute staff size in points (overrides `scale`). |
+| `spacing` | `--spacing 0.8` | Horizontal note spacing multiplier: more or fewer notes per line at the same staff size. |
+| `system_spacing` | `--system-spacing 0.75` | Vertical gap between systems. |
+| `page_count` | `--page-count 2` | Ask LilyPond to fit the piece on exactly N pages (it compresses to fit; check the result). |
+| `systems_per_page` | `--systems-per-page 6` | Fixed number of systems per page. |
+| `paper_size` | `--paper-size letter` | Paper name: a4, letter, legal, a3, … |
+
+Values are range-checked (scale 0.4–2.5, staff size 8–50pt, spacing 0.4–3). Re-running on an already laid-out `.ly` replaces the previous block instead of stacking.
 
 ## Web UI
 

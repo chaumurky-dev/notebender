@@ -35,6 +35,7 @@ async fn deterministic_transpose_runs_without_api_key() {
         }],
         deliverables: vec![Format::MusicXml],
         unsupported: vec![],
+        layout: Default::default(),
     };
     let req = JobRequest {
         input: fixture(),
@@ -94,6 +95,7 @@ async fn dry_run_describes_model_steps_instead_of_calling() {
         ],
         deliverables: vec![Format::MusicXml, Format::Humdrum],
         unsupported: vec![],
+        layout: Default::default(),
     };
     let req = JobRequest {
         input: fixture(),
@@ -138,6 +140,7 @@ async fn model_step_without_key_fails_clearly() {
         }],
         deliverables: vec![Format::MusicXml],
         unsupported: vec![],
+        layout: Default::default(),
     };
     let req = JobRequest {
         input: fixture(),
@@ -149,4 +152,42 @@ async fn model_step_without_key_fails_clearly() {
     };
     let err = pipeline::run_job(&ctx, &req, pipeline::noop_sink()).await.unwrap_err();
     assert!(format!("{err:#}").contains("no API key is configured"), "{err:#}");
+}
+
+#[tokio::test]
+async fn layout_options_are_injected_into_lilypond() {
+    let ctx = offline_context();
+    if !ctx.tools.musicxml2ly.available() {
+        eprintln!("musicxml2ly not installed; skipping");
+        return;
+    }
+    let out = tempfile::tempdir().unwrap();
+    let plan = Plan {
+        summary: String::new(),
+        steps: vec![],
+        deliverables: vec![Format::LilyPond],
+        unsupported: vec![],
+        layout: notebender::layout::LayoutOptions {
+            scale: Some(0.75),
+            spacing: Some(0.9),
+            ..Default::default()
+        },
+    };
+    let req = JobRequest {
+        input: fixture(),
+        instructions: "smaller".into(),
+        out_dir: out.path().to_path_buf(),
+        plan: Some(plan),
+        review: false,
+        dry_run: true,
+    };
+    let result = pipeline::run_job(&ctx, &req, pipeline::noop_sink())
+        .await
+        .expect("job runs");
+    let ly = std::fs::read_to_string(out.path().join("score.ly")).unwrap();
+    assert!(ly.contains("#(set-global-staff-size 15.00)"), "{ly}");
+    assert!(ly.contains("spacing-increment = #1.08"), "{ly}");
+    assert!(result.steps.iter().any(|s| s.label == "layout"));
+    // Layout implies a PDF deliverable (engraved when lilypond exists; warned otherwise).
+    assert!(result.plan.deliverables.contains(&Format::Pdf));
 }

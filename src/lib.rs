@@ -16,6 +16,7 @@
 pub mod agents;
 pub mod claude;
 pub mod config;
+pub mod layout;
 pub mod models;
 pub mod musicxml;
 pub mod pdf;

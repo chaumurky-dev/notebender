@@ -18,6 +18,8 @@ Supported steps:
 
 Output formats (deliverables): musicxml (always included), lilypond, pdf (engraved from LilyPond), humdrum (**kern), abc. Include a format when the user asks for it by name or by obvious synonym (".ly" → lilypond, "kern" → humdrum, "printable"/"engraved"/"sheet" → pdf). If the user names no format, deliver musicxml and pdf.
 
+Layout (engraving size and spacing; affects LilyPond/PDF output only): fill `layout` when the user talks about size, readability, spacing, or how much fits on a page. "smaller", "more compact", "fit more on a page", "fewer pages" → scale 0.8 (0.7 for "much smaller"); "bigger", "larger print", "more readable", "too cramped" → scale 1.2 (1.4 for "much bigger"); "fit on N pages" → page_count N; "N systems/lines per page" → systems_per_page N; "tighter"/"closer notes" → spacing 0.8; "more room between notes"/"spread out" → spacing 1.25; "more/less space between staves or lines" → system_spacing 1.3 / 0.75; an explicit staff size in points → staff_size; a paper name (a4, letter, legal, a3) → paper_size. Leave every layout field null when size/spacing is not mentioned.
+
 Ordering: arrange and edit steps first, then transpose, then tablature (tab must be computed after any pitch changes). If a request has nothing to do (e.g. "just transcribe it"), return no steps. Put anything you cannot map onto these steps into `unsupported`, quoting the user's words, rather than guessing. The `summary` is one sentence restating what will be done."#;
 
 pub fn plan_schema() -> Value {
@@ -78,9 +80,23 @@ pub fn plan_schema() -> Value {
                 "type": "array",
                 "items": { "type": "string", "enum": Format::ALL.iter().map(|f| f.id()).collect::<Vec<_>>() }
             },
-            "unsupported": { "type": "array", "items": { "type": "string" } }
+            "unsupported": { "type": "array", "items": { "type": "string" } },
+            "layout": {
+                "type": "object",
+                "properties": {
+                    "scale": nullable("number"),
+                    "staff_size": nullable("number"),
+                    "spacing": nullable("number"),
+                    "system_spacing": nullable("number"),
+                    "page_count": nullable("integer"),
+                    "systems_per_page": nullable("integer"),
+                    "paper_size": nullable("string")
+                },
+                "required": ["scale", "staff_size", "spacing", "system_spacing", "page_count", "systems_per_page", "paper_size"],
+                "additionalProperties": false
+            }
         },
-        "required": ["summary", "steps", "deliverables", "unsupported"],
+        "required": ["summary", "steps", "deliverables", "unsupported", "layout"],
         "additionalProperties": false
     })
 }
@@ -121,6 +137,10 @@ pub fn normalize(plan: &mut Plan) {
     // MusicXML is always delivered; dedupe and keep a stable order.
     if !plan.deliverables.contains(&Format::MusicXml) {
         plan.deliverables.insert(0, Format::MusicXml);
+    }
+    // A layout request implies an engraved deliverable.
+    if !plan.layout.is_default() && !plan.deliverables.contains(&Format::Pdf) {
+        plan.deliverables.push(Format::Pdf);
     }
     plan.deliverables.sort();
     plan.deliverables.dedup();
@@ -178,6 +198,7 @@ mod tests {
             ],
             deliverables: vec![Format::Pdf, Format::Pdf],
             unsupported: vec![],
+            layout: Default::default(),
         };
         normalize(&mut plan);
         assert!(matches!(plan.steps[0], Step::Transpose { from_key: None, .. }));
@@ -187,9 +208,14 @@ mod tests {
 
     #[test]
     fn plan_json_round_trip() {
-        let text = r#"{"summary":"s","steps":[{"kind":"transpose","semitones":null,"from_key":"G","to_key":"C"},{"kind":"arrange","instruments":["cello","guitar"],"notes":null}],"deliverables":["lilypond","pdf"],"unsupported":[]}"#;
+        let text = r#"{"summary":"s","steps":[{"kind":"transpose","semitones":null,"from_key":"G","to_key":"C"},{"kind":"arrange","instruments":["cello","guitar"],"notes":null}],"deliverables":["lilypond","pdf"],"unsupported":[],"layout":{"scale":0.8,"staff_size":null,"spacing":null,"system_spacing":null,"page_count":2,"systems_per_page":null,"paper_size":null}}"#;
         let plan: Plan = serde_json::from_str(text).unwrap();
         assert_eq!(plan.steps.len(), 2);
         assert_eq!(plan.deliverables, vec![Format::LilyPond, Format::Pdf]);
+        assert_eq!(plan.layout.scale, Some(0.8));
+        assert_eq!(plan.layout.page_count, Some(2));
+        // Older plans without a layout field still parse.
+        let plan: Plan = serde_json::from_str(r#"{"summary":"s","steps":[],"deliverables":[]}"#).unwrap();
+        assert!(plan.layout.is_default());
     }
 }

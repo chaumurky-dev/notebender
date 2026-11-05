@@ -119,6 +119,7 @@ pub async fn run_job(ctx: &Context, req: &JobRequest, progress: ProgressSink) ->
     for u in &plan.unsupported {
         run.warn(format!("not supported, skipped: {u}"));
     }
+    plan.layout.validate().map_err(|e| anyhow::anyhow!("layout: {e}"))?;
     (run.progress)(ProgressEvent::Planned { plan: plan.clone() });
     run.result.plan = plan.clone();
 
@@ -342,10 +343,15 @@ async fn deliver(run: &mut Run<'_>, plan: &Plan, score: &str, score_path: &Path)
                 match agents::convert::convert(ctx, score, score_path, *format, &run.workdir, &run.progress).await {
                     Ok(r) => {
                         run.record(r.report);
+                        let text = if *format == Format::LilyPond {
+                            apply_layout(run, &plan.layout, r.text)
+                        } else {
+                            r.text
+                        };
                         let name = format!("score.{}", format.extension());
                         let p = run.artifact(
                             &name,
-                            r.text.as_bytes(),
+                            text.as_bytes(),
                             Some(*format),
                             &format!("{} export", format.label()),
                         )?;
@@ -374,8 +380,9 @@ async fn deliver(run: &mut Run<'_>, plan: &Plan, score: &str, score_path: &Path)
             {
                 Ok(r) => {
                     run.record(r.report);
+                    let text = apply_layout(run, &plan.layout, r.text);
                     let p = run.workdir.join("score.ly");
-                    std::fs::write(&p, r.text)?;
+                    std::fs::write(&p, text)?;
                     ly_path = Some(p);
                 }
                 Err(e) => {
@@ -398,6 +405,17 @@ async fn deliver(run: &mut Run<'_>, plan: &Plan, score: &str, score_path: &Path)
     Ok(())
 }
 
+/// Inject layout options into LilyPond source, recording a deterministic step when they are set.
+fn apply_layout(run: &mut Run<'_>, layout: &crate::layout::LayoutOptions, ly: String) -> String {
+    if layout.is_default() {
+        return ly;
+    }
+    let started = run.start_deterministic("layout");
+    let out = crate::layout::apply_to_lilypond(&ly, layout);
+    run.deterministic("layout", started, vec![layout.describe()]);
+    out
+}
+
 pub fn describe_plan(plan: &Plan) -> String {
     let mut parts: Vec<String> = plan
         .steps
@@ -416,6 +434,9 @@ pub fn describe_plan(plan: &Plan) -> String {
         .collect();
     if parts.is_empty() {
         parts.push("transcribe".into());
+    }
+    if !plan.layout.is_default() {
+        parts.push(format!("layout: {}", plan.layout.describe()));
     }
     let formats: Vec<&str> = plan.deliverables.iter().map(|f| f.label()).collect();
     format!("{}; deliver {}", parts.join(", "), formats.join(", "))
