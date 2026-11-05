@@ -1,0 +1,33 @@
+:root{--bg:#f6f7f9;--card:#fff;--fg:#1c2128;--muted:#6b7280;--line:#e3e6ea;--accent:#2f5bd8;--ok:#1a7f45;--bad:#c62828;--warn:#b26a00}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--fg);font:15px/1.45 system-ui,-apple-system,"Segoe UI",sans-serif}
+header{display:flex;align-items:center;gap:1rem;flex-wrap:wrap;padding:.7rem 1rem;background:var(--card);border-bottom:1px solid var(--line)}
+h1{margin:0;font-size:1.2rem}
+h2{font-size:.85rem;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);margin:1.2rem 0 .4rem}
+h3{margin:1rem 0 .4rem;font-size:1rem}
+.health{font-size:.8rem;color:var(--muted);display:flex;gap:.4rem;flex-wrap:wrap}
+.pill{padding:.05rem .5rem;border-radius:99px;border:1px solid var(--line);background:var(--bg)}
+.pill.ok{color:var(--ok);border-color:var(--ok)}.pill.no{color:var(--muted)}.pill.bad{color:var(--bad);border-color:var(--bad)}
+.warn{background:#fff4e0;color:var(--warn);padding:.5rem 1rem;border-bottom:1px solid #f0d9ae}
+main{display:grid;grid-template-columns:340px 1fr;gap:1rem;padding:1rem;max-width:1200px;margin:auto}
+aside,section{background:var(--card);border:1px solid var(--line);border-radius:8px;padding:1rem;min-width:0}
+label{display:block;font-weight:600;font-size:.85rem;margin-bottom:.7rem}
+label.check{font-weight:400}
+input[type=file],textarea{display:block;width:100%;margin-top:.25rem;font:inherit;font-weight:400}
+textarea{padding:.4rem;border:1px solid var(--line);border-radius:6px;resize:vertical}
+button{background:var(--accent);color:#fff;border:0;border-radius:6px;padding:.45rem 1rem;font:inherit;cursor:pointer}
+button:disabled{opacity:.5}button.link{background:none;color:var(--bad);padding:0}
+.err{color:var(--bad);font-size:.85rem;margin-top:.4rem}.muted{color:var(--muted)}
+.jobs{list-style:none;margin:0;padding:0}
+.jobs li{padding:.5rem;border:1px solid transparent;border-radius:6px;cursor:pointer}
+.jobs li:hover{background:var(--bg)}.jobs li.sel{border-color:var(--accent);background:var(--bg)}
+.jobs .meta{font-size:.75rem;color:var(--muted)}
+.badge{font-size:.7rem;padding:.05rem .45rem;border-radius:4px;color:#fff;background:var(--muted);margin-right:.3rem}
+.badge.running{background:var(--accent)}.badge.done{background:var(--ok)}.badge.failed{background:var(--bad)}
+pre{background:var(--bg);border:1px solid var(--line);border-radius:6px;padding:.6rem;overflow:auto;white-space:pre-wrap;font-size:.8rem;margin:.3rem 0}
+.log{max-height:260px}
+table{border-collapse:collapse;width:100%;font-size:.8rem}
+th,td{text-align:left;padding:.25rem .4rem;border-bottom:1px solid var(--line)}td.n,th.n{text-align:right}
+a{color:var(--accent)}
+.head{display:flex;justify-content:space-between;gap:1rem;align-items:flex-start}
+@media(max-width:800px){main{grid-template-columns:1fr}}

@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>notebender</title>
+<link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+<header><h1>notebender</h1><div id="health" class="health">checking...</div></header>
+<div id="keywarn" class="warn" hidden>No API key configured: set the API key environment variable and restart. Jobs will fail until then.</div>
+<main>
+  <aside>
+    <form id="form">
+      <label>Score file <input type="file" id="file" accept=".pdf,.musicxml,.xml" required></label>
+      <label>What should I do with this score?
+        <textarea id="instructions" rows="4" required placeholder="Transpose from G to C and add guitar tab&#10;Arrange this piano piece for cello and guitar, output LilyPond and PDF"></textarea>
+      </label>
+      <label class="check"><input type="checkbox" id="review"> QA review (extra model pass)</label>
+      <button type="submit" id="submit">Run</button>
+      <div id="formerr" class="err"></div>
+    </form>
+    <h2>Jobs</h2>
+    <ul id="jobs" class="jobs"></ul>
+  </aside>
+  <section id="detail"><p class="muted">Select or submit a job.</p></section>
+</main>
+<script src="/static/app.js"></script>
+</body>
+</html>

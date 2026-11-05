@@ -1,0 +1,7 @@
+/target
+/notebender.toml
+/.notebender-data
+*.log
+.DS_Store
+/jobs
+/out

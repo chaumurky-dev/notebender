@@ -1,0 +1,51 @@
+[package]
+name = "notebender"
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.89"
+description = "Sheet-music transformation toolkit (OMR, transposition, tablature, arranging) driven by Claude, with a CLI and a local web UI"
+license = "MIT"
+repository = "https://github.com/chaumurky-dev/notebender"
+readme = "README.md"
+keywords = ["music", "musicxml", "lilypond", "sheet-music", "claude"]
+categories = ["command-line-utilities", "multimedia"]
+
+[lib]
+name = "notebender"
+path = "src/lib.rs"
+
+[[bin]]
+name = "notebender"
+path = "src/main.rs"
+
+[dependencies]
+anyhow = "1"
+thiserror = "2"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+toml = "1"
+clap = { version = "4", features = ["derive", "env"] }
+tokio = { version = "1", features = ["rt-multi-thread", "macros", "fs", "process", "sync", "time", "io-util", "signal"] }
+reqwest = { version = "0.13", default-features = false, features = ["json", "stream", "rustls", "charset", "http2"] }
+futures-util = "0.3"
+bytes = "1"
+axum = { version = "0.8", features = ["multipart", "json", "macros"] }
+tower-http = { version = "0.7", features = ["trace", "limit"] }
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+base64 = "0.23"
+uuid = { version = "1", features = ["v4", "serde"] }
+quick-xml = "0.42"
+roxmltree = "0.21"
+chrono = { version = "0.4", features = ["serde"] }
+dirs = "7"
+tempfile = "3"
+which = "8"
+
+[dev-dependencies]
+pretty_assertions = "1"
+tower = { version = "0.5", features = ["util"] }
+
+[profile.release]
+lto = "thin"
+codegen-units = 1
