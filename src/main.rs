@@ -50,15 +50,16 @@ enum Command {
     },
     /// Transcribe a PDF to MusicXML (and optionally other formats) without other changes.
     Omr {
+        /// Input PDF (or MusicXML).
         input: PathBuf,
         #[command(flatten)]
         out: OutArgs,
-        /// Output formats besides MusicXML (lilypond, pdf, humdrum, abc); repeatable.
-        #[arg(long = "format", value_name = "FMT")]
-        formats: Vec<String>,
+        #[command(flatten)]
+        formats: FormatArgs,
     },
     /// Transpose (deterministic; no API calls for MusicXML input).
     Transpose {
+        /// Input PDF (or MusicXML to skip OMR).
         input: PathBuf,
         /// Interval in semitones, e.g. 1, -2, 12.
         #[arg(short, long, allow_hyphen_values = true, conflicts_with = "to")]
@@ -71,25 +72,30 @@ enum Command {
         from: Option<String>,
         #[command(flatten)]
         out: OutArgs,
-        #[arg(long = "format", value_name = "FMT")]
-        formats: Vec<String>,
+        #[command(flatten)]
+        formats: FormatArgs,
     },
     /// Add tablature for a fretted instrument.
     Tab {
+        /// Input PDF (or MusicXML to skip OMR).
         input: PathBuf,
+        /// Fretted instrument: guitar, bass, ukulele, mandolin, banjo, …
         #[arg(long, default_value = "guitar")]
         instrument: String,
+        /// Tuning, e.g. "standard", "drop D", "DADGAD".
         #[arg(long)]
         tuning: Option<String>,
+        /// Capo fret.
         #[arg(long)]
         capo: Option<u8>,
         #[command(flatten)]
         out: OutArgs,
-        #[arg(long = "format", value_name = "FMT")]
-        formats: Vec<String>,
+        #[command(flatten)]
+        formats: FormatArgs,
     },
     /// Arrange for different instruments.
     Arrange {
+        /// Input PDF (or MusicXML to skip OMR).
         input: PathBuf,
         /// Comma-separated instruments in score order, e.g. "cello,guitar".
         #[arg(long = "for", value_name = "INSTRUMENTS")]
@@ -99,13 +105,26 @@ enum Command {
         notes: Option<String>,
         #[command(flatten)]
         out: OutArgs,
-        #[arg(long = "format", value_name = "FMT")]
-        formats: Vec<String>,
+        #[command(flatten)]
+        formats: FormatArgs,
+    },
+    /// Apply a free-form edit described in words (e.g. "simplify the left hand").
+    Edit {
+        /// Input PDF (or MusicXML to skip OMR).
+        input: PathBuf,
+        /// The edit to apply, in plain language.
+        #[arg(short, long)]
+        instruction: String,
+        #[command(flatten)]
+        out: OutArgs,
+        #[command(flatten)]
+        formats: FormatArgs,
     },
     /// Convert a score to other notation formats.
     Convert {
+        /// Input PDF (or MusicXML to skip OMR).
         input: PathBuf,
-        /// Target formats (lilypond, pdf, humdrum, abc); repeatable.
+        /// Target format: lilypond, pdf, humdrum, abc (repeatable or comma-separated).
         #[arg(long = "to", value_name = "FMT", required = true)]
         formats: Vec<String>,
         #[command(flatten)]
@@ -113,8 +132,10 @@ enum Command {
     },
     /// Start the local web UI.
     Serve {
+        /// Bind address (default from config: 127.0.0.1).
         #[arg(long)]
         host: Option<String>,
+        /// Port (default from config: 8787).
         #[arg(long)]
         port: Option<u16>,
         /// Directory for uploads and results (default: platform data dir).
@@ -152,9 +173,18 @@ struct OutArgs {
     /// Output directory (default: ./out/<input-stem>).
     #[arg(short, long)]
     out: Option<PathBuf>,
-    /// Don't call the API; run deterministic steps and describe the rest.
+    /// Never call the API: run deterministic steps (transposition, musicxml2ly, LilyPond) and only
+    /// describe model-backed ones. Needs MusicXML input and a subcommand that defines the plan
+    /// (not `run`, whose plan comes from the planner model).
     #[arg(long)]
     dry_run: bool,
+}
+
+#[derive(Args, Debug)]
+struct FormatArgs {
+    /// Extra output format besides MusicXML: lilypond, pdf, humdrum, abc (repeatable or comma-separated).
+    #[arg(long = "format", value_name = "FMT")]
+    formats: Vec<String>,
 }
 
 fn parse_formats(specs: &[String]) -> Result<Vec<Format>> {
@@ -320,7 +350,7 @@ async fn main() -> Result<()> {
             let plan = Plan {
                 summary: "transcribe".into(),
                 steps: vec![],
-                deliverables: parse_formats(&formats)?,
+                deliverables: parse_formats(&formats.formats)?,
                 unsupported: vec![],
             };
             run_with_plan(&app, input, out, Some(plan), "Transcribe this score.".into(), false).await
@@ -349,7 +379,7 @@ async fn main() -> Result<()> {
             let plan = Plan {
                 summary: instructions.clone(),
                 steps: vec![step],
-                deliverables: parse_formats(&formats)?,
+                deliverables: parse_formats(&formats.formats)?,
                 unsupported: vec![],
             };
             run_with_plan(&app, input, out, Some(plan), instructions, false).await
@@ -370,7 +400,7 @@ async fn main() -> Result<()> {
                     tuning,
                     capo,
                 }],
-                deliverables: parse_formats(&formats)?,
+                deliverables: parse_formats(&formats.formats)?,
                 unsupported: vec![],
             };
             run_with_plan(&app, input, out, Some(plan), instructions, false).await
@@ -394,10 +424,26 @@ async fn main() -> Result<()> {
             let plan = Plan {
                 summary: instructions.clone(),
                 steps: vec![Step::Arrange { instruments, notes }],
-                deliverables: parse_formats(&formats)?,
+                deliverables: parse_formats(&formats.formats)?,
                 unsupported: vec![],
             };
             run_with_plan(&app, input, out, Some(plan), instructions, false).await
+        }
+        Command::Edit {
+            input,
+            instruction,
+            out,
+            formats,
+        } => {
+            let plan = Plan {
+                summary: format!("edit: {instruction}"),
+                steps: vec![Step::Edit {
+                    instruction: instruction.clone(),
+                }],
+                deliverables: parse_formats(&formats.formats)?,
+                unsupported: vec![],
+            };
+            run_with_plan(&app, input, out, Some(plan), instruction, false).await
         }
         Command::Convert { input, formats, out } => {
             let deliverables = parse_formats(&formats)?;
@@ -501,7 +547,7 @@ fn doctor(app: &App) -> Result<()> {
         ),
         Err(e) => {
             println!("API key: MISSING — {e}");
-            problems += 1;
+            println!("         (deterministic commands still work; model-backed steps will fail)");
         }
     }
     println!("API base URL: {}", app.config.api.base_url);

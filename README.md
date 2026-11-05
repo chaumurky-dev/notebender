@@ -9,7 +9,7 @@ Upload a PDF of sheet music, describe a transformation in plain words, and get b
 macOS (Homebrew):
 
 ```sh
-# Rust (stable, 1.85 or newer) and the optional external tools
+# Rust (stable, 1.89 or newer) and the optional external tools
 curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
 brew install lilypond poppler
 
@@ -46,7 +46,7 @@ Everything except the items below is a Rust crate fetched by cargo. There is no 
 
 | Kind | Dependency | Purpose | Without it | macOS (brew) | Debian/Ubuntu (apt) | Windows |
 |---|---|---|---|---|---|---|
-| Build | Rust stable >= 1.85 (cargo) | Compile the crate | Cannot build | `brew install rustup` or rustup.rs | rustup.rs | rustup.rs |
+| Build | Rust stable >= 1.89 (cargo) | Compile the crate | Cannot build | `brew install rustup` or rustup.rs | rustup.rs | rustup.rs |
 | Runtime, required | Anthropic API key with access to the configured models | OMR, planning, tablature, arranging, edits, non-LilyPond conversion | Only deterministic work runs: `transpose` / `convert --to lilypond,pdf` on MusicXML input | n/a | n/a | n/a |
 | Runtime, optional | LilyPond (includes `musicxml2ly`) | Engrave PDF; deterministic MusicXML to LilyPond | No PDF output; LilyPond export falls back to a model | `brew install lilypond` | `sudo apt install lilypond` | [lilypond.org/download](https://lilypond.org/download.html) |
 | Runtime, optional | poppler (`pdftoppm`, `pdfinfo`) | Rasterise PDF pages for page-by-page OMR; count pages | The whole PDF is sent to the model in one request; page count is a rough scan | `brew install poppler` | `sudo apt install poppler-utils` | Poppler Windows builds, e.g. [oschwartz10612/poppler-windows](https://github.com/oschwartz10612/poppler-windows) |
@@ -78,9 +78,10 @@ Subcommands that process a score share these options: `-o, --out DIR` (default `
 | `transpose INPUT` | `-s, --semitones N` or `--to KEY`; `--from KEY`; `--format FMT` | Deterministic transposition. `--to` and `--semitones` conflict; `--from` requires `--to` and defaults to the key detected in the score. |
 | `tab INPUT` | `--instrument NAME` (default `guitar`), `--tuning TEXT`, `--capo N`, `--format FMT` | Add a tablature part. |
 | `arrange INPUT` | `--for A,B` (required), `--notes TEXT`, `--format FMT` | Arrange for the listed instruments, in score order. |
+| `edit INPUT -i TEXT` | `--format FMT` | Apply a free-form edit described in words (Sonnet), e.g. "remove the repeats". |
 | `convert INPUT` | `--to FMT` (required, repeatable) | Convert to other notation formats. |
 | `serve` | `--host`, `--port`, `--data-dir` | Start the web UI (defaults from config: `127.0.0.1:8787`). |
-| `doctor` | | Check config, API key, external tools, routing and the MusicXML engine. Exits non-zero if the key is missing. |
+| `doctor` | | Check config, API key, external tools, routing and the MusicXML engine. A missing key is reported as a warning; exits non-zero only if the engine self-test fails. |
 | `models` | | Print the task to model routing table and prices. |
 | `config init [--path P] [--force]` | | Write the commented default config to `./notebender.toml`. |
 | `config show` | | Print the effective configuration. |
@@ -95,6 +96,7 @@ notebender transpose song.musicxml -s -2                 # down a tone, spelled 
 notebender transpose song.musicxml --from G --to C --format pdf
 notebender tab song.pdf --instrument guitar --tuning "drop D" --capo 2
 notebender arrange piano.pdf --for "cello,guitar" --notes "easy, keep the melody in the cello"
+notebender edit song.musicxml -i "double the melody an octave up in the last 8 bars"
 notebender convert song.musicxml --to lilypond,abc,humdrum
 notebender --model omr=fable omr hard-handwriting.pdf
 notebender transpose song.musicxml --to D --dry-run
@@ -273,7 +275,7 @@ Overrides: set `[routing]` (and `[effort]`) in the config for a permanent change
 3. **OMR** (Opus). Each page is transcribed to MusicXML in its own request. Page 1 goes first; its part list is passed to the other pages as context so part ids and names stay consistent, and those pages run concurrently (`limits.omr_concurrency`). Per-page documents are merged deterministically in Rust. Without poppler the whole PDF is sent as one request.
 4. **Plan** (Haiku). For `run` and the web UI, the request (and a structural summary of the score) becomes a plan: steps, deliverable formats, and anything unsupported (reported as a warning and skipped). The other subcommands build the plan directly with no model call.
 5. **Steps**, in order:
-   - **Transpose** (Rust, no model). Pitches, key signatures and chord symbols are rewritten. The interval is chosen so the resulting key has as few accidentals as possible (for example, up 6 semitones from C is spelled to land in F# major rather than Gb major, and `-s` with a known source key avoids keys of 7 sharps/flats where an enharmonic spelling exists). With `--to`, the spelling follows the target key and the source key is detected from the score unless `--from` is given.
+   - **Transpose** (Rust, no model). Pitches, key signatures and chord symbols are rewritten. With `--semitones`, the interval's spelling (e.g. augmented fourth vs diminished fifth) is chosen so the resulting key signature has the fewest accidentals; for example C up 1 semitone becomes Db major (5 flats) rather than C# major (7 sharps), and C up 6 becomes F# major. With `--to`, the spelling follows the target key and the source key is detected from the score unless `--from` is given.
    - **Tablature** (Sonnet). Adds a separate `TAB` part rather than altering existing staves, with string tuning in `staff-details` and `<string>`/`<fret>` technicals on every note, tuned to stay in position and within fret 19. An existing guitar part is tabbed in place of deriving one.
    - **Arrange** (Opus). Writes one part per requested instrument, in the requested order, with ranges, clefs and transpositions handled.
    - **Edit** (Sonnet). Any other change described in words.
@@ -305,7 +307,7 @@ CI (`.github/workflows/ci.yml`, with `RUSTFLAGS=-D warnings`) runs on pushes to 
 - `fmt + clippy`: `cargo fmt --all -- --check` and clippy with `-D warnings` (ubuntu)
 - `test`: `cargo test --all-targets` and `cargo test --doc` on ubuntu and macOS
 - `offline pipeline`: installs LilyPond and poppler, then runs `transpose tests/fixtures/simple.musicxml --to Bb --format lilypond,pdf` and checks the PDF, LilyPond file and key signature (no API key)
-- `MSRV`: `cargo check --all-targets` on Rust 1.85
+- `MSRV`: `cargo check --all-targets` on Rust 1.89
 
 Layout:
 

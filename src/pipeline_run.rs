@@ -103,7 +103,9 @@ pub async fn run_job(ctx: &Context, req: &JobRequest, progress: ProgressSink) ->
             agents::planner::normalize(&mut p);
             p
         }
-        None if req.dry_run => anyhow::bail!("--dry-run needs an explicit plan (use a subcommand such as `transpose`)"),
+        None if req.dry_run => anyhow::bail!(
+            "--dry-run makes no API calls, so the planner cannot run; use a subcommand that defines the plan (transpose, tab, arrange, edit, convert, omr) instead of `run`"
+        ),
         None => {
             let (plan, report) =
                 agents::planner::plan(ctx, &req.instructions, Some(&original_summary), &run.progress).await?;
