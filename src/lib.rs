@@ -23,5 +23,6 @@ pub mod pdf;
 pub mod pipeline;
 pub mod pipeline_run;
 pub mod router;
+pub mod tab;
 pub mod tools;
 pub mod web;

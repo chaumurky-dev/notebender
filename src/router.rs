@@ -50,7 +50,7 @@ impl TaskKind {
             TaskKind::Plan => Tier::Haiku,
             TaskKind::Omr => Tier::Opus,
             TaskKind::Convert => Tier::Sonnet,
-            TaskKind::Tablature => Tier::Sonnet,
+            TaskKind::Tablature => Tier::Haiku,
             TaskKind::Arrange => Tier::Opus,
             TaskKind::Edit => Tier::Sonnet,
             TaskKind::Review => Tier::Haiku,
@@ -196,7 +196,7 @@ mod tests {
         let r = Router::default();
         assert_eq!(r.route(TaskKind::Plan).tier, Tier::Haiku);
         assert_eq!(r.route(TaskKind::Omr).tier, Tier::Opus);
-        assert_eq!(r.route(TaskKind::Tablature).tier, Tier::Sonnet);
+        assert_eq!(r.route(TaskKind::Tablature).tier, Tier::Haiku);
         assert_eq!(r.route(TaskKind::Arrange).tier, Tier::Opus);
         // Fable is never a default.
         for (_, route) in r.table() {

@@ -25,6 +25,8 @@ pub enum ValidationError {
     MissingMeasureNumber { part: String },
     #[error("part-list and parts disagree: {0}")]
     PartListMismatch(String),
+    #[error("parts have different measure counts: {0}")]
+    MeasureCountMismatch(String),
 }
 
 fn children<'a, 'i>(n: Node<'a, 'i>, name: &'static str) -> impl Iterator<Item = Node<'a, 'i>> {
@@ -52,12 +54,14 @@ pub fn validate(xml: &str) -> Result<(), ValidationError> {
             "part-list ids {listed:?} vs part ids {ids:?}"
         )));
     }
+    let mut counts: Vec<(String, usize)> = Vec::new();
     for part in parts {
         let id = part.attribute("id").unwrap_or("").to_string();
         let measures: Vec<Node> = children(part, "measure").collect();
         if measures.is_empty() {
             return Err(ValidationError::EmptyPart { part: id });
         }
+        counts.push((id.clone(), measures.len()));
         for m in measures {
             let Some(num) = m.attribute("number") else {
                 return Err(ValidationError::MissingMeasureNumber { part: id });
@@ -78,6 +82,10 @@ pub fn validate(xml: &str) -> Result<(), ValidationError> {
                 }
             }
         }
+    }
+    if counts.iter().any(|(_, n)| *n != counts[0].1) {
+        let detail: Vec<String> = counts.iter().map(|(id, n)| format!("{id} {n}")).collect();
+        return Err(ValidationError::MeasureCountMismatch(detail.join(", ")));
     }
     Ok(())
 }

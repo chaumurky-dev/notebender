@@ -214,7 +214,7 @@ output_per_mtok = 50.0
 plan = "haiku"        # parse the request into steps
 omr = "opus"          # read the score; try "fable" for hard handwriting
 convert = "sonnet"    # LilyPond/Humdrum/ABC when no local converter exists
-tablature = "sonnet"
+tablature = "haiku"         # picks strings per 8-measure chunk; frets are computed
 arrange = "opus"
 edit = "sonnet"
 review = "haiku"
@@ -259,7 +259,7 @@ task       tier     effort   model                    purpose
 plan       haiku    low      claude-haiku-4-5         parse the request into a plan
 omr        opus     high     claude-opus-5-5          read the score (PDF/images) into MusicXML
 convert    sonnet   medium   claude-sonnet-5-5        convert notation formats (LLM fallback)
-tablature  sonnet   medium   claude-sonnet-5-5        add fretted-instrument tablature
+tablature  haiku    medium   claude-haiku-4-5         add fretted-instrument tablature
 arrange    opus     high     claude-opus-5-5          arrange for different instruments
 edit       sonnet   medium   claude-sonnet-5-5        apply a free-form edit to the score
 review     haiku    low      claude-haiku-4-5         QA the result against the request
@@ -275,8 +275,8 @@ Deterministic (no model): transposition, validation, page merging, musicxml2ly, 
 
 The rule is "cheapest appropriate":
 
-- **Haiku** for parsing the request into a structured plan and for the QA pass; both are short, structured and need no musical judgement.
-- **Sonnet** for tasks with a clear structure to follow: choosing fingerings for tablature, free-form edits, and format conversion when no local converter exists.
+- **Haiku** for parsing the request into a structured plan, for the QA pass, and for choosing which string each note of a tablature goes on (a small, local decision made per chunk of measures, with the frets computed and checked in Rust).
+- **Sonnet** for tasks with a clear structure to follow: free-form edits, and format conversion when no local converter exists.
 - **Opus** for open-ended musical decisions: reading a scanned score (OMR) and re-arranging for new instruments, where mistakes are expensive to fix later.
 - **Fable** is never used by default. Opt in per task, e.g. `--model omr=fable` or `[routing] omr = "fable"`.
 - **No model** for everything that can be computed.
@@ -297,7 +297,7 @@ Overrides: set `[routing]` (and `[effort]`) in the config for a permanent change
 4. **Plan** (Haiku). For `run` and the web UI, the request (and a structural summary of the score) becomes a plan: steps, deliverable formats, and anything unsupported (reported as a warning and skipped). The other subcommands build the plan directly with no model call.
 5. **Steps**, in order:
    - **Transpose** (Rust, no model). Pitches, key signatures and chord symbols are rewritten. With `--semitones`, the interval's spelling (e.g. augmented fourth vs diminished fifth) is chosen so the resulting key signature has the fewest accidentals; for example C up 1 semitone becomes Db major (5 flats) rather than C# major (7 sharps), and C up 6 becomes F# major. With `--to`, the spelling follows the target key and the source key is detected from the score unless `--from` is given.
-   - **Tablature** (Sonnet). Adds a separate `TAB` part rather than altering existing staves, with string tuning in `staff-details` and `<string>`/`<fret>` technicals on every note, tuned to stay in position and within fret 19. An existing guitar part is tabbed in place of deriving one.
+   - **Tablature** (Rust + Haiku). The notation part is copied into a new `TAB` part, so rhythm, voices and ties match by construction, and every note's `<string>`/`<fret>` is computed from its pitch, the tuning and the capo. The only judgement, which string a note sits on, is asked of Haiku in chunks of 8 measures (one measure of context either side) that run concurrently; each answer is checked for playability, the engraver's own string numbers, finger numbers and position/barre marks ("C. 7a", "CVII") in the source always take precedence, and a deterministic position-minimising solver fills anything the model left out or got wrong (a chunk whose answer is mostly unusable is retried one tier up). With `--dry-run` or no API key the solver does all of it. Guitar and bass parts are assumed to be written an octave above sounding pitch; a missing `<transpose>` is added. Tunings: presets (`standard`, `drop D`, `DADGAD`, `open G`, …), a pitch list (`"D2 A2 D3 G3 B3 E4"`) or letters (`DADGBE`); instruments: guitar (6/7-string), bass (4/5), ukulele, baritone ukulele, mandolin, banjo. The score must already contain a part for the instrument; arrange for it first otherwise.
    - **Arrange** (Opus). Writes one part per requested instrument, in the requested order, with ranges, clefs and transpositions handled.
    - **Edit** (Sonnet). Any other change described in words.
    - Every model step that returns MusicXML is validated. On failure the validator error is sent back for **one repair round**; if it still fails, a warning is recorded. If a reply hits the token limit, the model is asked to **continue** (a few times at most), and the report notes it.

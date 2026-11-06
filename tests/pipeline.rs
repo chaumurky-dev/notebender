@@ -118,7 +118,7 @@ async fn dry_run_describes_model_steps_instead_of_calling() {
     let logs = logs.lock().unwrap();
     assert!(
         logs.iter()
-            .any(|l| l.contains("would add guitar tablature with claude-sonnet-5-5")),
+            .any(|l| l.contains("strings chosen by the deterministic solver")),
         "{logs:?}"
     );
     assert!(logs.iter().any(|l| l.contains("would convert to Humdrum")), "{logs:?}");
@@ -126,6 +126,10 @@ async fn dry_run_describes_model_steps_instead_of_calling() {
     let score = std::fs::read_to_string(out.path().join("score.musicxml")).unwrap();
     assert!(score.contains("<fifths>-5</fifths>"), "{score}");
     assert!(result.steps.iter().any(|s| s.label == "transpose"));
+    // Tablature is deterministic, so the dry run produced a real TAB part with frets.
+    assert!(score.contains("<sign>TAB</sign>"), "{score}");
+    assert!(score.contains("<fret>"), "{score}");
+    assert!(result.steps.iter().any(|s| s.label.starts_with("tablature")));
 }
 
 #[tokio::test]

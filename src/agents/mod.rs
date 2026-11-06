@@ -139,7 +139,9 @@ pub async fn call_on_tier(
         let chunk = resp.text();
         text.push_str(&chunk);
         stop_reason = resp.stop_reason.clone();
-        if resp.model != model && !resp.model.is_empty() {
+        // A dated snapshot of the requested alias (claude-x-4-5 -> claude-x-4-5-20251001) is the
+        // same model; only a different model id is a real fallback.
+        if !resp.model.is_empty() && resp.model != model && !resp.model.starts_with(&model) {
             notes.push(format!("served by fallback model {}", resp.model));
         }
         if !resp.hit_max_tokens() || task.schema.is_some() || continuations >= MAX_CONTINUATIONS {

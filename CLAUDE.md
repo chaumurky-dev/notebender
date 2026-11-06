@@ -12,10 +12,11 @@ Guidance for coding agents working in this repository.
 - `src/pipeline.rs` data model (`Plan`, `Step`, `Format`, `JobRequest`, `ProgressEvent`); `src/pipeline_run.rs` execution (OMR -> plan -> steps -> deliverables -> `report.md`).
 - `src/models.rs` tiers, model ids, prices. `src/router.rs` task -> tier. `src/config.rs` TOML config + `EXAMPLE_TOML`.
 - `src/layout.rs` engraving layout options (staff size, spacing, page targets) injected into LilyPond source; deterministic.
+- `src/tab/` tablature: `notes.rs` extracts pitched events + engraver hints, `instrument.rs` tunings, `solver.rs` deterministic string choice, `build.rs` writes the TAB part. `agents/tablature.rs` only asks a cheap model which string each note goes on, per chunk of measures.
 - `src/agents/` model-backed agents (planner, omr, tablature, arrange, edit, convert, review) and the shared `xml_task.rs` driver (validate + one repair round).
 - `src/claude/` Messages API client (streaming, retries, prompt caching, fallbacks).
 - `src/musicxml/` deterministic transpose / validate / merge. `src/tools.rs` + `src/pdf.rs` external tools (lilypond, musicxml2ly, pdftoppm, pdfinfo).
-- `src/web/` server, `src/web/static/` UI. `tests/` integration tests, `tests/fixtures/simple.musicxml`.
+- `src/web/` server, `src/web/static/` UI. `tests/` integration tests, `tests/fixtures/simple.musicxml` (piano), `tests/fixtures/guitar.musicxml`.
 
 ## Commands
 
@@ -33,7 +34,8 @@ CI also builds on Rust 1.89 (MSRV) with `RUSTFLAGS=-D warnings`; do not use newe
 ## Conventions
 
 - Model ids appear only in `src/models.rs` and the config (`EXAMPLE_TOML`). Everything else asks the router for a `Tier`.
-- Cheapest appropriate routing: Haiku for parsing/QA, Sonnet for structured tasks, Opus for OMR and arranging. Fable is never a default.
+- Cheapest appropriate routing: Haiku for parsing/QA/tablature string choice, Sonnet for structured tasks, Opus for OMR and arranging. Fable is never a default.
+- Prefer small, chunked, structured model calls over asking a model to re-emit a whole score: a model never re-writes MusicXML it was not asked to change.
 - Deterministic first: if a step can be computed (transpose, validate, merge, musicxml2ly, lilypond), do it in code, not with a model. Model output is validated before use.
 - Tests for deterministic code. Tests must not call the network or need an API key; use the fixture or a mock server (see `tests/claude_client.rs`).
 - Keep `EXAMPLE_TOML` equal to the defaults (a test enforces it); config rejects unknown keys.

@@ -249,16 +249,28 @@ async fn apply_step(run: &mut Run<'_>, step: &Step, score: String) -> Result<Str
             capo,
         } => {
             if run.req.dry_run {
-                run.log(format!(
-                    "would add {instrument} tablature with {}",
-                    ctx.config
-                        .model_id(ctx.router.route(crate::router::TaskKind::Tablature).tier)
-                ));
-                return Ok(score);
+                run.log("dry run: strings chosen by the deterministic solver, no model call");
             }
-            let r = agents::tablature::add_tablature(ctx, &score, instrument, tuning.as_deref(), *capo, &run.progress)
-                .await?;
-            finish_xml_step(run, "tablature", r)
+            let r = agents::tablature::add_tablature(
+                ctx,
+                &score,
+                instrument,
+                tuning.as_deref(),
+                *capo,
+                !run.req.dry_run,
+                &run.progress,
+            )
+            .await?;
+            for rep in r.reports {
+                run.record(rep);
+            }
+            for w in r.warnings {
+                run.warn(w);
+            }
+            if let Some(n) = r.notes {
+                run.notes.push(("tablature".to_string(), n));
+            }
+            Ok(r.musicxml)
         }
         Step::Arrange { instruments, notes } => {
             if run.req.dry_run {
