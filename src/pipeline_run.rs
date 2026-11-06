@@ -87,6 +87,10 @@ pub async fn run_job(ctx: &Context, req: &JobRequest, progress: ProgressSink) ->
     let mut score = match kind {
         InputKind::MusicXml => {
             let xml = std::fs::read_to_string(&req.input)?;
+            let (xml, fixes) = musicxml::fix_missing_backups(&xml)?;
+            for f in fixes {
+                run.warn(format!("input repaired: {f}"));
+            }
             musicxml::validate(&xml).context("input MusicXML is not valid")?;
             run.log(format!("input is MusicXML ({} bytes); skipping OMR", xml.len()));
             xml
@@ -419,6 +423,12 @@ async fn deliver(run: &mut Run<'_>, plan: &Plan, score: &str, score_path: &Path)
 
 /// Inject layout options into LilyPond source, recording a deterministic step when they are set.
 fn apply_layout(run: &mut Run<'_>, layout: &crate::layout::LayoutOptions, ly: String) -> String {
+    let (ly, skips) = crate::lilypond::sync_grace_skips(&ly);
+    if skips > 0 {
+        run.log(format!(
+            "LilyPond: added {skips} grace skip(s) so repeat bar lines line up with grace notes"
+        ));
+    }
     if layout.is_default() {
         return ly;
     }

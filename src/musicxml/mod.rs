@@ -5,10 +5,12 @@
 //! * [`merge`] — stitch per-page partwise documents (from page-by-page OMR) into one score.
 
 pub mod merge;
+pub mod repair;
 pub mod transpose;
 pub mod validate;
 
 pub use merge::merge_pages;
+pub use repair::{beams_are_sparse, fix_missing_backups};
 pub use transpose::{detect_key, transpose, Interval, Key, KeyParseError, Mode};
 pub use validate::{summarize, validate, PartSummary, Summary, ValidationError};
 

@@ -244,6 +244,7 @@ pub fn extract(xml: &str, part_id: &str, default_octave_change: i8) -> Result<Pa
                         grace,
                         tie_stop,
                         voice: text_of(el, "voice").unwrap_or_else(|| "1".into()),
+                        staff: text_of(el, "staff").and_then(|t| t.parse::<u8>().ok()),
                         string_hint,
                         fingering,
                     });

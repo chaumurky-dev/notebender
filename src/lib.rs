@@ -14,9 +14,11 @@
 //! The CLI (`src/main.rs`) and the web UI ([`web`]) are thin front-ends over [`pipeline::run_job`].
 
 pub mod agents;
+pub mod arrange;
 pub mod claude;
 pub mod config;
 pub mod layout;
+pub mod lilypond;
 pub mod models;
 pub mod musicxml;
 pub mod pdf;

@@ -49,6 +49,8 @@ pub async fn run_xml_task(
     let mut warnings = Vec::new();
     let xml = extract_musicxml(&outcome.text).with_context(|| format!("{label}: reply contained no MusicXML"))?;
     let mut notes = extract_notes(&outcome.text);
+    let (xml, fixes) = musicxml::fix_missing_backups(&xml)?;
+    report.notes.extend(fixes);
 
     let xml = match musicxml::validate(&xml) {
         Ok(()) => xml,

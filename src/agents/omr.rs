@@ -148,6 +148,8 @@ async fn transcribe_one(
         Some(x) => x,
         None => anyhow::bail!("{label}: model reply contained no MusicXML document"),
     };
+    let (xml, fixes) = musicxml::fix_missing_backups(&xml)?;
+    report.notes.extend(fixes);
     match musicxml::validate(&xml) {
         Ok(()) => Ok((xml, report, warnings)),
         Err(err) => {

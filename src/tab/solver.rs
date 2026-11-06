@@ -548,6 +548,7 @@ mod tests {
             grace: false,
             tie_stop: false,
             voice: "1".into(),
+            staff: None,
             string_hint: None,
             fingering: None,
         }

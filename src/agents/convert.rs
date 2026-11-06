@@ -42,8 +42,8 @@ pub async fn convert(
         });
         let started = Instant::now();
         match ctx.tools.musicxml_to_lilypond(musicxml_path, workdir).await {
-            Ok(ly) => {
-                let report = super::deterministic_report(label, started.elapsed().as_secs_f64(), vec![]);
+            Ok((ly, notes)) => {
+                let report = super::deterministic_report(label, started.elapsed().as_secs_f64(), notes);
                 progress(ProgressEvent::StepFinished { report: report.clone() });
                 return Ok(ConvertResult { text: ly, report });
             }

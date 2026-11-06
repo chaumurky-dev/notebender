@@ -306,7 +306,7 @@ pub async fn add_tablature(
     progress: &ProgressSink,
 ) -> Result<TabResult> {
     let started = Instant::now();
-    let inst = Instrument::resolve(instrument, tuning)?;
+    let mut inst = Instrument::resolve(instrument, tuning)?;
     let capo = capo.unwrap_or(0);
     let Some((part_id, part_name)) = notes::find_part(score, instrument)? else {
         let names: Vec<String> = crate::musicxml::summarize(score)
@@ -329,6 +329,15 @@ pub async fn add_tablature(
     let mut warnings = Vec::new();
     let mut reports = Vec::new();
     let mut notes_out = Vec::new();
+
+    // A guitar part that reaches exactly D2 (one step below the low E) is written for drop D.
+    let lowest = part.events.iter().map(|e| e.midi).min().unwrap_or(i32::MAX);
+    if tuning.is_none() && inst.name == "guitar" && capo == 0 && lowest == 38 {
+        inst = Instrument::resolve("guitar", Some("drop D"))?;
+        notes_out.push(
+            "the part goes down to D2, so drop D tuning was assumed (pass --tuning standard to override)".to_string(),
+        );
+    }
 
     // Engraver's string numbers are hard constraints (checked for playability by the solver).
     let mut fixed: Vec<Assignment> = part

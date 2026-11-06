@@ -40,6 +40,8 @@ pub struct NoteEvent {
     /// Continuation of a tied note: must keep the previous string and fret.
     pub tie_stop: bool,
     pub voice: String,
+    /// `<staff>` number for multi-staff parts (piano: 1 = right hand, 2 = left hand).
+    pub staff: Option<u8>,
     /// `<technical><string>` from the source score, 1 = highest-pitched string.
     pub string_hint: Option<u8>,
     /// Left-hand finger from `<technical><fingering>` in the source score.

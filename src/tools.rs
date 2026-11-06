@@ -98,11 +98,20 @@ impl Toolbox {
         ]
     }
 
-    /// Convert MusicXML to LilyPond with `musicxml2ly`. Returns the `.ly` source.
-    pub async fn musicxml_to_lilypond(&self, musicxml_path: &Path, workdir: &Path) -> Result<String> {
+    /// Convert MusicXML to LilyPond with `musicxml2ly`. Returns the `.ly` source and notes on
+    /// choices made (e.g. automatic beaming when the file's own beams are sparse, as OMR
+    /// output often is).
+    pub async fn musicxml_to_lilypond(&self, musicxml_path: &Path, workdir: &Path) -> Result<(String, Vec<String>)> {
         let exe = self.musicxml2ly.path.clone().context("musicxml2ly is not installed")?;
         let out = workdir.join("converted.ly");
-        let status = Command::new(exe)
+        let xml = tokio::fs::read_to_string(musicxml_path).await?;
+        let mut notes = Vec::new();
+        let mut cmd = Command::new(exe);
+        if crate::musicxml::beams_are_sparse(&xml) {
+            cmd.arg("--no-beaming");
+            notes.push("beams in the score were incomplete; used LilyPond's automatic beaming".to_string());
+        }
+        let status = cmd
             .arg("--output")
             .arg(&out)
             .arg(musicxml_path)
@@ -114,7 +123,7 @@ impl Toolbox {
         if !status.status.success() {
             anyhow::bail!("musicxml2ly failed: {}", String::from_utf8_lossy(&status.stderr).trim());
         }
-        Ok(tokio::fs::read_to_string(&out).await?)
+        Ok((tokio::fs::read_to_string(&out).await?, notes))
     }
 
     /// Engrave a `.ly` file to PDF with LilyPond. Returns the PDF path.
